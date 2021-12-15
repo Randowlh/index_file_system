@@ -9,7 +9,7 @@ using namespace std;
 #define NAME_LEN 240
 #define SYSTEM_SIZE 67108864/1024 //64K
 FILE *cur=NULL;
-char BUF[BLOCK_SIZE*2048];
+char BUF[BLOCK_SIZE*100];
 struct index_node {      //total:256bit
     char name[NAME_LEN];      //16*8bit
     int bro, son, fa;   //32*3bit
@@ -25,27 +25,31 @@ struct file_node{
 // unordered_map<int,index_node>  index_cache;
 struct link_table{
     int to[64];
+    link_table(){
+        for(int i=0;i<64;i++)
+            to[i]=0;
+    }
 };
 struct trash_stack{
     int nxt;
-    char blk[BLOCK_SIZE-4];
+    char blk[BLOCK_SIZE/8-4];
     trash_stack(){nxt=0;}
 };
 struct superblock{
     int index_root;
     int trash_top;
     int tail_pos;
-    char free_space[BLOCK_SIZE-4*3];
+    char free_space[BLOCK_SIZE/8-4*3];
 };
 void* getblock(FILE *cur,int pos){
-    fseek(cur, pos*BLOCK_SIZE, SEEK_SET);
+    fseek(cur, pos*BLOCK_SIZE/8, SEEK_SET);
     char *buf = (char*)malloc(BLOCK_SIZE);
-    fread(buf, BLOCK_SIZE, 1, cur);
+    fread(buf, BLOCK_SIZE/8, 1, cur);
     return buf;
 }
-void writeblock(FILE *cur,int pos,void *buf){
-    fseek(cur, pos*BLOCK_SIZE, SEEK_SET);
-    fwrite(buf, BLOCK_SIZE, 1, cur);
+void writeblock(int pos,void *buf){
+    fseek(cur, pos*BLOCK_SIZE/8, SEEK_SET);
+    fwrite(buf, BLOCK_SIZE/8, 1, cur);
 }
 int get_new_block(){
     if(trash_top==0) return tail_pos++;
@@ -61,7 +65,7 @@ void free_block(int pos){
     trash_stack st;
     st.nxt=trash_top;
     trash_top=pos;
-    writeblock(cur,pos,&st);
+    writeblock(pos,&st);
 }
 void format_file(FILE *cur){
     fseek(cur,0,SEEK_SET);
@@ -73,10 +77,10 @@ void format_file(FILE *cur){
     sb.index_root=1;
     sb.trash_top=0;
     sb.tail_pos=2;
-    writeblock(cur,0,&sb);
+    writeblock(0,&sb);
     index_node root;
     strcpy(root.name,"/");
-    writeblock(cur,1,&root);
+    writeblock(1,&root);
 }
 void init_file(){
     FILE *f = fopen("ext2fs.dump", "r");
@@ -132,7 +136,7 @@ void erase_the_link_table(int pos,int step){
                 lt.to[i]=0;
             }
         }
-        writeblock(cur,pos,&lt);
+        writeblock(pos,&lt);
     }
     else{
         link_table lt=*(link_table*)getblock(cur,pos);
@@ -145,24 +149,64 @@ void erase_the_link_table(int pos,int step){
 void erase_file(int pos){
     file_node root=*(file_node*)getblock(cur,pos);
     for(int i=0;i<=11;i++){
-        if(root.to[i]!=0)
-            erase_the_link_table(root.to[i],0);
+        if(root.to[i]!=0){
+            free_block(root.to[i]);
+            root.to[i]=0;
+        }
     }
     if(root.to[12]!=0)
-        erase_the_link_table(root.to[11],1);
+        erase_the_link_table(root.to[11],0);
     if(root.to[13]!=0)
-        erase_the_link_table(root.to[12],2);
+        erase_the_link_table(root.to[12],1);
     if(root.to[14]!=0)
-        erase_the_link_table(root.to[13],3);
+        erase_the_link_table(root.to[13],2);
 }
-int write_to_link_table(int pos,int tail,int now,int step){
+int write_to_link_table(int tail,int now,int step){
+    return 0;
     if(step==0){
     }
 }
 int writefile(int pos,int tail){
-    erase_file(pos);
+    return 0;
+    file_node current=*(file_node*)getblock(cur,pos);
+    int bg=0;
+    for(int i=0;i<=11;i++){
+        if(bg!=tail){
+            current.to[i]=get_new_block();
+            char* str=(char*)getblock(cur,current.to[i]);
+            for(int i=0;i<BLOCK_SIZE/8&&bg<tail;i++)
+                str[i]=BUF[bg++];
+        }
+    }
+    if(bg==tail)
+        return 0;
+    int tmp=get_new_block();
+    current.to[12]=tmp;
+    link_table lt;
+    write_to_link_table(bg,tmp,0);
 }
-
+void write(char name[]){
+    int pos=now.son;
+    int flag=0;
+    while(pos!=0){
+        if(strcmp(name,now.name)==0){
+            flag=1;
+            break;
+        }
+        pos=now.son;
+    }
+    if(flag==0){
+        printf("No such file\n");
+        return;
+    }
+    int tail=0;
+    printf("Control-D to finish writing\n");
+    char a;
+    while((a=getchar())!=EOF)
+        BUF[tail++]=a;
+    BUF[tail++]='\0';
+    writefile(pos,tail);
+}
 void init(FILE *cur){
     now=*(index_node*)getblock(cur,1);
     cur_pos=1;
@@ -176,6 +220,10 @@ void mkdir(char name[]){
     new_node.is_file=0;
     new_node.bro=now.son;
     new_node.fa=cur_pos;
+    new_node.son=0;
+    now.son=get_new_block();
+    cout<<"now.son="<<now.son<<endl;
+    writeblock(now.son,(void *)&new_node);
 }
 void ls(){
     printf("..\n");
@@ -189,22 +237,26 @@ void ls(){
 }
 void cd(char name[]){
     if(strcmp(name,"..")==0){
-        if(cur_pos==1) return;
+        if(cur_pos==1)
+            return;
         cur_pos=now.fa;
         now=*(index_node*)getblock(cur,cur_pos);
         return;
     }
-    if(strcmp(name,".")==0) return;
+    if(strcmp(name,".")==0){
+        return;
+    }
     int pos=now.son;
     while(pos!=0){
         index_node now=*(index_node*)getblock(cur,pos);
-        if(strcmp(now.name,name)==0){
+        if(strcmp(name,now.name)==0){
             cur_pos=pos;
+            now=*(index_node*)getblock(cur,cur_pos);
             return;
         }
         pos=now.bro;
     }
-    printf("no such file or directory\n");
+    printf("No such file\n");
 }
 void pwd(){
     int pos=cur_pos;
@@ -225,10 +277,11 @@ void touch(char name[]){
     new_node.bro=now.son;
     new_node.fa=cur_pos;
     now.son=get_new_block();
-    writeblock(cur,cur_pos,&now);
-    writeblock(cur,now.son,&new_node);
+    writeblock(cur_pos,&now);
+    writeblock(now.son,&new_node);
 }
 void rm(char name[]){
+    return;
 }
 void cat(char name[]){
     int pos=now.son;
@@ -250,15 +303,7 @@ void cat(char name[]){
     }
     printf("no such file or directory\n");
 }
-void write(char name[]){
-    int tail=0;
-    printf("Control-D to finish writing\n");
-    char a;
-    while((a=getchar())!=EOF)
-        BUF[tail++]=a;
-    BUF[tail++]='\0';
 
-}
 void main_loop(){
     printf("randow_pc:$");
     char cmd[100];
