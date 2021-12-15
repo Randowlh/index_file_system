@@ -14,7 +14,7 @@ struct index_node {      //total:256bit
     char name[NAME_LEN];      //16*8bit
     int bro, son, fa;   //32*3bit
     int is_file;           //32bit
-    index_node(){bro=0,son=0,fa=0,is_file=0;}
+    index_node(){bro=0,son=0,fa=0,is_file=0;memset(name,0,NAME_LEN);}
 }now;
 int cur_pos=0;
 int tail_pos,trash_top;
@@ -73,6 +73,17 @@ void free_block(int pos){
     st.nxt=trash_top;
     trash_top=pos;
     writeblock(pos,&st);
+}
+int search_current_index(char name[]){
+    int ans=0;
+    int pos=now.son;
+    while(pos!=0){
+        index_node in=*(index_node*)getblock(cur,pos);
+        if(strcmp(in.name,name)==0)
+            return pos;
+        pos=in.bro;
+    }
+    return -1;
 }
 void format_file(FILE *f){
     cur=f;
@@ -203,25 +214,16 @@ void writefile(int pos){
     writeblock(pos,&current);
 }
 void write(char name[]){
-    int pos=now.son;
-    int flag=0;
-    while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
-        if(strcmp(name,tmp.name)==0){
-            if(tmp.is_file==0){
-                printf("This is not a file,can't write\n");
-                return;
-            }
-            flag=1;
-            break;
-        };
-        pos=tmp.bro;
-    }
-    if(flag==0){
+    int pos=search_current_index(name);
+    if(pos==-1){
         printf("No such file\n");
         return;
     }
     index_node tmp=*(index_node*)getblock(cur,pos);
+    if(tmp.is_file==0){
+        printf("It is a directory\n");
+        return;
+    }
     tail=0;
     printf("enter '@' to finish writing\n");
     char a;
@@ -239,6 +241,11 @@ void init(FILE *cur){
     trash_top=sb.trash_top;
 }
 void mkdir(char name[]){
+    int pos=search_current_index(name);
+    if(pos!=-1){
+        printf("Already exist!\n");
+        return;
+    }
     index_node new_node;
     strcpy(new_node.name,name);
     new_node.is_file=0;
@@ -250,8 +257,8 @@ void mkdir(char name[]){
     writeblock(now.son,(void *)&new_node);
 }
 void ls(){
-    printf("..\n");
     printf(".\n");
+    printf("..\n");
     int pos=now.son;
     while(pos!=0){
         index_node now=*(index_node*)getblock(cur,pos);
@@ -270,17 +277,26 @@ void cd(char name[]){
     if(strcmp(name,".")==0){
         return;
     }
-    int pos=now.son;
-    while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
-        if(strcmp(name,tmp.name)==0){
-            cur_pos=pos;
-            now=tmp;
-            return;
-        }
-        pos=tmp.bro;
+    int pos=search_current_index(name);
+    if(pos==-1){
+        printf("No such file\n");
+        return;
     }
-    printf("No such file\n");
+    index_node tmp=*(index_node*)getblock(cur,pos);
+    if(tmp.is_file==1){
+        printf("It is a file\n");
+        return;
+    }
+    cur_pos=pos;
+    now=tmp;
+}
+void reverse_string(char a[],int n){
+    int i,j;
+    for(i=0,j=n-1;i<j;i++,j--){
+        char tmp=a[i];
+        a[i]=a[j];
+        a[j]=tmp;
+    }
 }
 void pwd(){
     int pos=cur_pos;
@@ -288,13 +304,22 @@ void pwd(){
     strcpy(path,"/");
     while(pos!=1){
         index_node now=*(index_node*)getblock(cur,pos);
-        strcat(path,now.name);
+        char tt[NAME_LEN];
+        strcpy(tt,now.name);
+        reverse_string(tt,strlen(tt));
+        strcat(path,tt);
         strcat(path,"/");
         pos=now.fa;
     }
-    printf("%s\n",path);
+    reverse_string(path,strlen(path));
+    printf("%s",path);
 }
 void touch(char name[]){
+    int pos=search_current_index(name);
+    if(pos!=-1){
+        printf("Already exist!\n");
+        return;
+    }
     index_node new_node;
     strcpy(new_node.name,name);
     new_node.is_file=1;
@@ -356,31 +381,29 @@ void rm(char name[]){
     }
 }
 void cat(char name[]){
-    int pos=now.son;
-    while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
-        if(strcmp(tmp.name,name)==0){
-            if(tmp.is_file==0){
-                printf("cat: %s: Is a directory\n",name);
-                return;
-            }
-            int pos=tmp.son;
-            // printf("pos=%d\n",pos);
-            readfile(pos);
-            for(int i=0;i<tail;i++){
-                if(BUF[i]=='\0') 
-                    break;               
-                printf("%c",BUF[i]);
-            }
-            printf("\n");
-            return;
-        }
-        pos=tmp.bro;
+    int pos=search_current_index(name);
+    if(pos==-1){
+        printf("no such file\n");
+        return;
     }
-    printf("no such file or directory\n");
+    index_node tmp=*(index_node*)getblock(cur,pos);
+    if(tmp.is_file==0){
+        printf("It is a directory\n");
+        return;
+    }
+    readfile(pos);
+    for(int i=0;i<tail;i++){
+        if(BUF[i]=='\0') 
+            break;               
+        printf("%c",BUF[i]);
+    }
+    printf("\n");
+    return;
 }
 int main_loop(){
-    printf("randow_pc:$");
+    printf("randow_pc");
+    pwd();
+    printf(":$");
     char cmd[100];
     scanf("%s",cmd);
     if(strcmp(cmd,"mkdir")==0){
@@ -407,6 +430,7 @@ int main_loop(){
         cat(name);
     }else if(strcmp(cmd,"pwd")==0){
         pwd();
+        printf("\n");
     }
     else if(strcmp(cmd,"write")==0){
         char name[NAME_LEN];
