@@ -1,5 +1,3 @@
-// #pragma warning (disable:4996)
-// #pragma warning (disable:6031)
 #include<bits/stdc++.h>
 using namespace std;
 #include <stdio.h>
@@ -9,8 +7,8 @@ using namespace std;
 #define NAME_LEN 240
 #define SYSTEM_SIZE 67108864 //64K
 FILE *cur=NULL;
-char BUF[BLOCK_SIZE*100];
-char tmp_str[BLOCK_SIZE/8];
+char BUF[BLOCK_SIZE*1000];
+char tmp_str[BLOCK_SIZE/8+10];
 int tail,bg;
 struct index_node {      //total:256bit
     char name[NAME_LEN];      //16*8bit
@@ -96,41 +94,35 @@ void init_file(){
         fclose(f);
     }else fclose(f);
 }
-int get_from_link_table(int pos,int step,int tail){
+void get_from_link_table(int pos,int step){
     link_table lt=*(link_table*)getblock(cur,pos);
     if(step==0){
-        for(int i=0;i<64;i++){
-            if(lt.to[i]!=0){
-                strcpy(tmp_str,(char*)getblock(cur,lt.to[i]));
-                for(int i=0;i<BLOCK_SIZE/8;i++)
-                    BUF[tail++]=tmp_str[i];
-            }
+        for(int i=0;i<64&&lt.to[i]!=0;i++){
+            char* str=(char*)getblock(cur,lt.to[i]);
+            for(int i=0;i<BLOCK_SIZE/8;i++)
+                BUF[tail++]=str[i];
         }
     }
     else{
-        for(int i=0;i<64;i++){
-            if(lt.to[i]!=0)
-                tail=get_from_link_table(lt.to[i],step-1,tail);
-        }
+        for(int i=0;i<64&&lt.to[i]!=0;i++)
+            get_from_link_table(lt.to[i],step-1);
     }
-    return tail;
+    return;
 }
 void readfile(int pos){
     tail=0;
     file_node root=*(file_node*)getblock(cur,pos);
-    for(int i=0;i<=11;i++){
-        if(root.to[i]!=0){
-            strcpy(tmp_str,(char*)getblock(cur,root.to[i]));
-            for(int i=0;i<BLOCK_SIZE/8;i++)
-                BUF[tail++]=tmp_str[i];
-        }
+    for(int i=0;i<=11&&root.to[i]!=0;i++){
+        char * str =(char *)getblock(cur,root.to[i]);
+        for(int j=0;j<BLOCK_SIZE/8;j++)
+            BUF[tail++]=tmp_str[j];
     }
     if(root.to[12]!=0)
-        tail=get_from_link_table(root.to[12],0,tail);
+        get_from_link_table(root.to[12],0);
     if(root.to[13]!=0)
-        tail=get_from_link_table(root.to[13],1,tail);
+        get_from_link_table(root.to[13],1);
     if(root.to[14]!=0)
-        tail=get_from_link_table(root.to[14],2,tail);
+        get_from_link_table(root.to[14],2);
     return;
 }
 void erase_the_link_table(int pos,int step){
@@ -157,27 +149,27 @@ void erase_file(int pos){
             root.to[i]=0;
         }
     }
-    
     if(root.to[12]!=0)
         erase_the_link_table(root.to[12],0);
     if(root.to[13]!=0)
         erase_the_link_table(root.to[13],1);
     if(root.to[14]!=0)
         erase_the_link_table(root.to[14],2);
-    free_block(pos);
+    writeblock(pos,&root);
 }
 void write_to_link_table(int pos,int step){
     if(step==0){
-        link_table lt=*(link_table*)getblock(cur,pos);
+        link_table lt;
         for(int i=0;i<64&&bg<tail;i++){
             lt.to[i]=get_new_block();
             for(int j=0;j<BLOCK_SIZE/8&&bg<tail;j++)
                 tmp_str[j]=BUF[bg++];
             writeblock(lt.to[i],tmp_str);
+            cout<<"i="<<i<<endl;
         }
         writeblock(pos,&lt);
     }else{
-        link_table lt=*(link_table*)getblock(cur,pos);
+        link_table lt;
         for(int i=0;i<64&&bg<tail;i++){
             lt.to[i]=get_new_block();
             write_to_link_table(lt.to[i],step-1);
@@ -187,7 +179,7 @@ void write_to_link_table(int pos,int step){
 }
 void writefile(int pos){
     BUF[tail++]='\n';
-    file_node current=*(file_node*)getblock(cur,pos);
+    file_node current;
     bg=0;
     for(int i=0;i<=11;i++){
         if(bg!=tail){
