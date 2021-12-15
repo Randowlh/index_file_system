@@ -130,7 +130,6 @@ void readfile(int pos){
     return;
 }
 void erase_the_link_table(int pos,int step){
-    cout<<"pos="<<pos<<endl;
     if(step==0){
         link_table lt=*(link_table*)getblock(cur,pos);
         for(int i=0;i<64;i++)
@@ -183,13 +182,11 @@ void write_to_link_table(int pos,int step){
 void writefile(int pos){
     file_node current;
     bg=0;
-    for(int i=0;i<=11;i++){
-        if(bg!=tail){
-            current.to[i]=get_new_block();
-            for(int i=0;i<BLOCK_SIZE/8&&bg<tail;i++)
-                tmp_str[i]=BUF[bg++];
-            writeblock(current.to[i],tmp_str);
-        }
+    for(int i=0;i<=11&&bg<tail;i++){
+        current.to[i]=get_new_block();
+        for(int j=0;j<BLOCK_SIZE/8&&bg<tail;j++)
+            tmp_str[j]=BUF[bg++];
+        writeblock(current.to[i],tmp_str);
     }
     if(bg<tail){
         current.to[12]=get_new_block();
@@ -211,23 +208,27 @@ void write(char name[]){
     while(pos!=0){
         index_node tmp=*(index_node*)getblock(cur,pos);
         if(strcmp(name,tmp.name)==0){
+            if(tmp.is_file==0){
+                printf("This is not a file,can't write\n");
+                return;
+            }
             flag=1;
             break;
         };
         pos=tmp.bro;
     }
-    index_node tmp=*(index_node*)getblock(cur,pos);
     if(flag==0){
         printf("No such file\n");
         return;
     }
+    index_node tmp=*(index_node*)getblock(cur,pos);
     tail=0;
     printf("enter '@' to finish writing\n");
     char a;
     while((a=getchar())!='@')
         BUF[tail++]=a;
     BUF[tail++]='\0';
-    // erase_file(tmp.son);  //something went wrong???
+    erase_file(tmp.son);  //something went wrong???
     writefile(tmp.son);
 }
 void init(FILE *cur){
@@ -366,8 +367,12 @@ void cat(char name[]){
             int pos=tmp.son;
             // printf("pos=%d\n",pos);
             readfile(pos);
-            for(int i=0;i<tail;i++)
+            for(int i=0;i<tail;i++){
+                if(BUF[i]=='\0') 
+                    break;               
                 printf("%c",BUF[i]);
+            }
+            printf("\n");
             return;
         }
         pos=tmp.bro;
