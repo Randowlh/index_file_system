@@ -7,7 +7,7 @@ using namespace std;
 #include <string.h>
 #define BLOCK_SIZE 2048
 #define NAME_LEN 240
-#define SYSTEM_SIZE 67108864/1024 //64K
+#define SYSTEM_SIZE 67108864 //64K
 FILE *cur=NULL;
 char BUF[BLOCK_SIZE*100];
 char tmp_str[BLOCK_SIZE/8];
