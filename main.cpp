@@ -401,9 +401,10 @@ void cat(char name[]){
     return;
 }
 int main_loop(){
-    printf("randow_pc");
+    printf("\n\e[1mrandow_file_sys\e[0m@randow ");
     pwd();
-    printf(":$");
+    printf("\n");
+    printf("> \e[032m$\e[0m ");
     char cmd[100];
     scanf("%s",cmd);
     if(strcmp(cmd,"mkdir")==0){
