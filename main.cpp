@@ -321,6 +321,10 @@ void cd(char name[]){
         index_node tmp=*(index_node*)tt;
         free(tt);
         if(strcmp(name,tmp.name)==0){
+            if(tmp.is_file==1){
+                printf("This is a file,can't cd\n");
+                return;
+            }
             cur_pos=pos;
             now=tmp;
             return;
