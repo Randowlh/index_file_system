@@ -253,11 +253,24 @@ void write(char name[]){
     index_node tmp=*(index_node*)tt;
     free(tt);
     tail=0;
-    printf("enter '@' to finish writing\n");
+    char file_name_str[NAME_LEN+20],cmd[NAME_LEN+20];
+    sprintf(file_name_str,"%d%d",rand(),rand());
+    strcat(file_name_str,name);
+    FILE *fp=fopen(file_name_str,"w");
+    fclose(fp);
+    strcpy(cmd,"vim ");
+    strcat(cmd,file_name_str);
+    system(cmd);
+    fp=fopen(file_name_str,"r");
     char a;
-    while((a=getchar())!='@')
+    while((fscanf(fp,"%c",&a))!=EOF)
         BUF[tail++]=a;
     BUF[tail++]='\0';
+    fclose(fp);
+    memset(cmd,0,NAME_LEN+20);
+    strcpy(cmd,"rm -f ");
+    strcat(cmd,file_name_str);
+    system(cmd);
     erase_file(tmp.son);  //something went wrong???
     writefile(tmp.son);
 }
@@ -450,7 +463,6 @@ void cat(char name[]){
                     break;               
                 printf("%c",BUF[i]);
             }
-            printf("\n");
             return;
         }
         pos=tmp.bro;
