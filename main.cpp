@@ -355,6 +355,7 @@ char * pwd(){
         strcat(path,"/");
         pos=now.fa;
     }
+    reverse_string(path);
     return path;
 }
 void touch(char name[]){
