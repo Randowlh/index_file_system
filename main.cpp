@@ -522,6 +522,7 @@ int main(int argc, char* argv[]) {
     init_file();
     cur=fopen("ext2fs.dump", "rb+");
     init(cur);
+    system("clear");
     while(1)
         if(main_loop())
             break;
