@@ -5,16 +5,17 @@ using namespace std;
 #include <string.h>
 #define BLOCK_SIZE 2048
 #define NAME_LEN 240
-#define SYSTEM_SIZE 67108864 //64K
+#define SYSTEM_SIZE 67108864 
 FILE *cur=NULL;
+void *tt;
 char BUF[BLOCK_SIZE*1000];
 char tmp_str[BLOCK_SIZE/8];
 int tail,bg;
-struct index_node {      //total:256bit
-    char name[NAME_LEN];      //16*8bit
-    int bro, son, fa;   //32*3bit
-    int is_file;           //32bit
-    index_node(){bro=0,son=0,fa=0,is_file=0;}
+struct index_node {     
+    char name[NAME_LEN];      
+    int bro, son, fa;   
+    int is_file;          
+    index_node(){bro=0,son=0,fa=0,is_file=0;memset(name,0,NAME_LEN);}
 }now;
 int cur_pos=0;
 int tail_pos,trash_top;
@@ -61,7 +62,9 @@ void writeblock(int pos,void *buf){
 int get_new_block(){
     if(trash_top==0) return tail_pos++;
     else{
-        trash_stack st=*(trash_stack*)getblock(cur,trash_top);
+        tt=getblock(cur,trash_top);
+        trash_stack st=*(trash_stack*)tt;
+        free(tt);
         int ans=trash_top;
         trash_top=st.nxt;
         return ans;
@@ -99,10 +102,14 @@ void init_file(){
     }else fclose(f);
 }
 void get_from_link_table(int pos,int step){
-    link_table lt=*(link_table*)getblock(cur,pos);
+    tt=getblock(cur,pos);
+    link_table lt=*(link_table*)tt;
+    free(tt);
     if(step==0){
         for(int i=0;i<64&&lt.to[i]!=0;i++){
-            char* str=(char*)getblock(cur,lt.to[i]);
+            tt=getblock(cur,lt.to[i]);
+            char* str=(char*)tt;
+            free(tt);
             for(int j=0;j<BLOCK_SIZE/8;j++)
                 BUF[tail++]=str[j];
         }
@@ -115,9 +122,13 @@ void get_from_link_table(int pos,int step){
 }
 void readfile(int pos){
     tail=0;
-    file_node root=*(file_node*)getblock(cur,pos);
+    tt=getblock(cur,pos);
+    file_node root=*(file_node*)tt;
+    free(tt);
     for(int i=0;i<=11&&root.to[i]!=0;i++){
-        char * str =(char *)getblock(cur,root.to[i]);
+        tt=getblock(cur,root.to[i]);
+        char * str =(char *)tt;
+        free(tt);
         for(int j=0;j<BLOCK_SIZE/8;j++)
             BUF[tail++]=str[j];
     }
@@ -131,13 +142,17 @@ void readfile(int pos){
 }
 void erase_the_link_table(int pos,int step){
     if(step==0){
-        link_table lt=*(link_table*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        link_table lt=*(link_table*)tt;
+        free(tt);
         for(int i=0;i<64;i++)
             if(lt.to[i]!=0)
                 free_block(lt.to[i]);
     }
     else{
-        link_table lt=*(link_table*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        link_table lt=*(link_table*)tt;
+        free(tt);
         for(int i=0;i<64;i++){
             if(lt.to[i]!=0)
                 erase_the_link_table(lt.to[i],step-1);
@@ -146,7 +161,9 @@ void erase_the_link_table(int pos,int step){
     free_block(pos);
 }
 void erase_file(int pos){
-    file_node root=*(file_node*)getblock(cur,pos);
+    tt=getblock(cur,pos);
+    file_node root=*(file_node*)tt;
+    free(tt);
     for(int i=0;i<=11;i++)
         if(root.to[i]!=0)
             free_block(root.to[i]);
@@ -206,7 +223,9 @@ void write(char name[]){
     int pos=now.son;
     int flag=0;
     while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        index_node tmp=*(index_node*)tt;
+        free(tt);
         if(strcmp(name,tmp.name)==0){
             if(tmp.is_file==0){
                 printf("This is not a file,can't write\n");
@@ -221,7 +240,9 @@ void write(char name[]){
         printf("No such file\n");
         return;
     }
-    index_node tmp=*(index_node*)getblock(cur,pos);
+    tt=getblock(cur,pos);
+    index_node tmp=*(index_node*)tt;
+    free(tt);
     tail=0;
     printf("enter '@' to finish writing\n");
     char a;
@@ -232,9 +253,13 @@ void write(char name[]){
     writefile(tmp.son);
 }
 void init(FILE *cur){
-    now=*(index_node*)getblock(cur,1);
+    tt=getblock(cur,1);
+    now=*(index_node*)tt;
+    free(tt);
     cur_pos=1;
-    superblock sb=*(superblock*)getblock(cur,0);
+    tt=getblock(cur,0);
+    superblock sb=*(superblock*)tt;
+    free(tt);
     tail_pos=sb.tail_pos;
     trash_top=sb.trash_top;
 }
@@ -250,11 +275,13 @@ void mkdir(char name[]){
     writeblock(now.son,(void *)&new_node);
 }
 void ls(){
-    printf("..\n");
     printf(".\n");
+    printf("..\n");
     int pos=now.son;
     while(pos!=0){
-        index_node now=*(index_node*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        index_node now=*(index_node*)tt;
+        free(tt);
         printf("%s\n",now.name);
         pos=now.bro;
     }
@@ -264,7 +291,9 @@ void cd(char name[]){
         if(cur_pos==1)
             return;
         cur_pos=now.fa;
-        now=*(index_node*)getblock(cur,cur_pos);
+        tt=getblock(cur,cur_pos);
+        now=*(index_node*)tt;
+        free(tt);
         return;
     }
     if(strcmp(name,".")==0){
@@ -272,7 +301,9 @@ void cd(char name[]){
     }
     int pos=now.son;
     while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        index_node tmp=*(index_node*)tt;
+        free(tt);
         if(strcmp(name,tmp.name)==0){
             cur_pos=pos;
             now=tmp;
@@ -282,17 +313,32 @@ void cd(char name[]){
     }
     printf("No such file\n");
 }
-void pwd(){
+void reverse_string(char str[]){
+    int i=0,j=strlen(str)-1;
+    while(i<j){
+        char tmp=str[i];
+        str[i]=str[j];
+        str[j]=tmp;
+        i++;
+        j--;
+    }
+}
+char * pwd(){
     int pos=cur_pos;
-    char path[NAME_LEN];
+    char* path=(char *)malloc(sizeof(char)*10000);
     strcpy(path,"/");
     while(pos!=1){
-        index_node now=*(index_node*)getblock(cur,pos);
-        strcat(path,now.name);
+        tt=getblock(cur,pos);
+        index_node now=*(index_node*)tt;
+        free(tt);
+        char tmp[NAME_LEN];
+        strcpy(tmp,now.name);
+        reverse_string(tmp);
+        strcat(path,tmp);
         strcat(path,"/");
         pos=now.fa;
     }
-    printf("%s\n",path);
+    return path;
 }
 void touch(char name[]){
     index_node new_node;
@@ -310,7 +356,9 @@ void touch(char name[]){
 void rm_index(int pos){
     if(pos==0)
         return;
-    index_node root=*(index_node*)getblock(cur,pos);
+    tt=getblock(cur,pos);
+    index_node root=*(index_node*)tt;
+    free(tt);
     if(root.bro!=0)
         rm_index(root.bro);
     if(root.son!=0){
@@ -326,7 +374,9 @@ void rm(char name[]){
     int flag=0;
     int nxt=0;
     while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        index_node tmp=*(index_node*)tt;
+        free(tt);
         if(strcmp(name,tmp.name)==0){
             flag=1;
             nxt=tmp.bro;
@@ -334,7 +384,9 @@ void rm(char name[]){
         }
         pos=tmp.bro;
     }
-    index_node tmp=*(index_node*)getblock(cur,pos);
+    tt=getblock(cur,pos);
+    index_node tmp=*(index_node*)tt;
+    free(tt);
     if(flag==0){
         printf("No such file\n");
         return;
@@ -345,7 +397,9 @@ void rm(char name[]){
         rm_index(pos);
     }else{
         int index=now.son;
-        index_node tmp=*(index_node*)getblock(cur,index);
+        tt=getblock(cur,index);
+        index_node tmp=*(index_node*)tt;
+        free(tt);
         while(tmp.bro!=pos){
             index=tmp.bro;
             tmp=*(index_node*)getblock(cur,tmp.bro);
@@ -358,14 +412,15 @@ void rm(char name[]){
 void cat(char name[]){
     int pos=now.son;
     while(pos!=0){
-        index_node tmp=*(index_node*)getblock(cur,pos);
+        tt=getblock(cur,pos);
+        index_node tmp=*(index_node*)tt;
+        free(tt);
         if(strcmp(tmp.name,name)==0){
             if(tmp.is_file==0){
                 printf("cat: %s: Is a directory\n",name);
                 return;
             }
             int pos=tmp.son;
-            // printf("pos=%d\n",pos);
             readfile(pos);
             for(int i=0;i<tail;i++){
                 if(BUF[i]=='\0') 
@@ -380,7 +435,10 @@ void cat(char name[]){
     printf("no such file or directory\n");
 }
 int main_loop(){
-    printf("randow_pc:$");
+    char *current_dir=pwd();
+    printf("\n\e[1mrandow_file_sys\e[0m@admin \e[1m%s\e[0m\n", current_dir);
+    printf("> \e[032m$\e[0m ");
+    free(current_dir);
     char cmd[100];
     scanf("%s",cmd);
     if(strcmp(cmd,"mkdir")==0){
@@ -406,7 +464,9 @@ int main_loop(){
         scanf("%s",name);
         cat(name);
     }else if(strcmp(cmd,"pwd")==0){
-        pwd();
+        char * tmp=pwd();
+        printf("%s\n",tmp);
+        free(tmp);
     }
     else if(strcmp(cmd,"write")==0){
         char name[NAME_LEN];
