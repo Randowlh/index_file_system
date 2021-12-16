@@ -77,6 +77,17 @@ void free_block(int pos){
     trash_top=pos;
     writeblock(pos,&st);
 }
+int search_current_index(char name[]){
+    int ans=0;
+    int pos=now.son;
+    while(pos!=0){
+        index_node in=*(index_node*)getblock(cur,pos);
+        if(strcmp(in.name,name)==0)
+            return pos;
+        pos=in.bro;
+    }
+    return -1;
+}
 void format_file(FILE *f){
     cur=f;
     fseek(cur,0,SEEK_SET);
@@ -264,6 +275,11 @@ void init(FILE *cur){
     trash_top=sb.trash_top;
 }
 void mkdir(char name[]){
+    int pos=search_current_index(name);
+    if(pos!=-1){
+        printf("Already exist!\n");
+        return;
+    }
     index_node new_node;
     strcpy(new_node.name,name);
     new_node.is_file=0;
@@ -311,7 +327,6 @@ void cd(char name[]){
         }
         pos=tmp.bro;
     }
-    printf("No such file\n");
 }
 void reverse_string(char str[]){
     int i=0,j=strlen(str)-1;
@@ -341,6 +356,11 @@ char * pwd(){
     return path;
 }
 void touch(char name[]){
+    int pos=search_current_index(name);
+    if(pos!=-1){
+        printf("Already exist!\n");
+        return;
+    }
     index_node new_node;
     strcpy(new_node.name,name);
     new_node.is_file=1;
@@ -432,7 +452,8 @@ void cat(char name[]){
         }
         pos=tmp.bro;
     }
-    printf("no such file or directory\n");
+    printf("\n");
+    return;
 }
 int main_loop(){
     char *current_dir=pwd();
