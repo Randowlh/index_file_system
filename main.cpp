@@ -523,14 +523,12 @@ int main_loop(){
         char name[NAME_LEN];
         scanf("%d %s",&offset,name);
         write(name,offset);
-    }else  if(strcmp(cmd,"exit")==0){
+    }else  if(strcmp(cmd,"exit")==0)
         return 1;
-    }else if(strcmp(cmd,"clear")==0){
+    else if(strcmp(cmd,"clear")==0)
         system("clear");
-    }
-    else{
+    else
         printf("error command\n");
-    }
     return 0;
 }
 int main(int argc, char* argv[]) {
