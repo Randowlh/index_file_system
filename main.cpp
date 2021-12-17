@@ -120,7 +120,10 @@ void get_from_link_table(int pos,int step){
             char* str=(char*)tt;
             free(tt);
             for(int j=0;j<BLOCK_SIZE/8;j++)
-                BUF[tail++]=str[j];
+                if(bg!=0)
+                    bg--;
+                else
+                    BUF[tail++]=str[j];
         }
     }
     else{
@@ -138,8 +141,12 @@ void readfile(int pos){
         tt=getblock(cur,root.to[i]);
         char * str =(char *)tt;
         free(tt);
-        for(int j=0;j<BLOCK_SIZE/8;j++)
-            BUF[tail++]=str[j];
+        for(int j=0;j<BLOCK_SIZE/8;j++){
+            if(bg!=0)
+                bg--;
+            else
+                BUF[tail++]=str[j];
+        }
     }
     if(root.to[12]!=0)
         get_from_link_table(root.to[12],0);
@@ -228,7 +235,7 @@ void writefile(int pos){
     }
     writeblock(pos,&current);
 }
-void write(char name[]){
+void write(char name[],int offset){
     int pos=now.son;
     int flag=0;
     while(pos!=0){
@@ -253,15 +260,20 @@ void write(char name[]){
     index_node tmp=*(index_node*)tt;
     free(tt);
     tail=0;
+    bg=0;
+    readfile(tmp.son);
+    BUF[tail++]='\0';
     char file_name_str[NAME_LEN+20],cmd[NAME_LEN+20];
     sprintf(file_name_str,"%d%d",rand(),rand());
     strcat(file_name_str,name);
     FILE *fp=fopen(file_name_str,"w");
+    fprintf(fp,"%s",BUF+offset);
     fclose(fp);
     strcpy(cmd,"vim ");
     strcat(cmd,file_name_str);
     system(cmd);
     fp=fopen(file_name_str,"r");
+    tail=offset;
     char a;
     while((fscanf(fp,"%c",&a))!=EOF)
         BUF[tail++]=a;
@@ -445,7 +457,7 @@ void rm(char name[]){
         rm_index(pos);
     }
 }
-void cat(char name[]){
+void cat(char name[],int offset){
     int pos=now.son;
     while(pos!=0){
         tt=getblock(cur,pos);
@@ -457,6 +469,7 @@ void cat(char name[]){
                 return;
             }
             int pos=tmp.son;
+            bg=offset;
             readfile(pos);
             for(int i=0;i<tail;i++){
                 if(BUF[i]=='\0') 
@@ -497,17 +510,19 @@ int main_loop(){
         touch(name);
     }else if(strcmp(cmd,"cat")==0){
         char name[NAME_LEN];
-        scanf("%s",name);
-        cat(name);
+        int offset;
+        scanf("%d %s",&offset,name);
+        cat(name,offset);
     }else if(strcmp(cmd,"pwd")==0){
         char * tmp=pwd();
         printf("%s\n",tmp);
         free(tmp);
     }
     else if(strcmp(cmd,"write")==0){
+        int offset;
         char name[NAME_LEN];
-        scanf("%s",name);
-        write(name);
+        scanf("%d %s",&offset,name);
+        write(name,offset);
     }else  if(strcmp(cmd,"exit")==0){
         return 1;
     }else if(strcmp(cmd,"clear")==0){
