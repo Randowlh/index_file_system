@@ -483,6 +483,13 @@ void cat(char name[],int offset){
     printf("\n");
     return;
 }
+void exitt(){
+    superblock sb;
+    sb.index_root=1;
+    sb.trash_top=trash_top;
+    sb.tail_pos=tail;
+    writeblock(0,&sb);
+}
 int main_loop(){
     char *current_dir=pwd();
     printf("\n\e[1mrandow_file_sys\e[0m@admin \e[1m%s\e[0m\n", current_dir);
@@ -539,6 +546,7 @@ int main(int argc, char* argv[]) {
     while(1)
         if(main_loop())
             break;
+    exitt();
     fclose(cur);
     return 0;
 }
