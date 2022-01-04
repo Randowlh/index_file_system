@@ -32,7 +32,15 @@ struct link_table{
             to[i]=0;
     }
 };
-w
+struct trash_stack{
+    int nxt;
+    char blk[BLOCK_SIZE/8-4];
+    trash_stack(){
+        nxt=0;
+        for(int i=0;i<BLOCK_SIZE/8-4;i++)
+            blk[i]=0;
+    }
+};
 struct superblock{
     int index_root;
     int trash_top;
