@@ -1,10 +1,9 @@
-# index_file_system
-## 杭电操作系统实验 lab5
-### 编译：
-```c++
-g++ -o main main.cpp
+# Index File System code in C
+# complie 
+```shell
+gcc main.c -o run
 ```
-### 运行：
-```c++
-./main
+# run
+```shell
+./run
 ```
